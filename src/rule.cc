@@ -396,6 +396,7 @@ std::list<std::pair<std::shared_ptr<std::string>,
         std::shared_ptr<std::string>(new std::string(in));
 
     if (m_containsMultiMatchAction == true) {
+        /* keep the original value */
         ret.push_back(std::make_pair(
             std::shared_ptr<std::string>(new std::string(*value)),
             std::shared_ptr<std::string>(new std::string(path))));
@@ -768,6 +769,17 @@ bool Rule::evaluate(Transaction *trans,
                     updateMatchedVars(trans, key, valueAfterTrans);
                     executeActionsIndependentOfChainedRuleResult(trans,
                         &containsBlock, ruleMessage);
+                    if (m_chainedRuleChild == NULL && m_chainedRuleParent == NULL
+                        && m_containsMultiMatchAction && ruleMessage->m_saveMessage
+                        && !ruleMessage->m_message.empty()) {
+                        trans->m_rulesMessages.push_back(*ruleMessage);
+                        ruleMessage = std::shared_ptr<RuleMessage>(
+                            new RuleMessage(this, trans));
+                    }
+                    if (m_containsStaticBlockAction && m_containsMultiMatchAction) {
+                        trans->serverLog(ruleMessage);
+                    }
+
                     globalRet = true;
                 }
             }
@@ -816,9 +828,15 @@ end_clean:
 
 end_exec:
     executeActionsAfterFullMatch(trans, containsBlock, ruleMessage);
-    if (m_ruleId != 0 && ruleMessage->m_saveMessage != false) {
-        trans->serverLog(ruleMessage);
+    if (m_chainedRuleChild == NULL && m_chainedRuleParent == NULL
+        && m_containsMultiMatchAction && ruleMessage->m_saveMessage
+        && !ruleMessage->m_message.empty()) {
         trans->m_rulesMessages.push_back(*ruleMessage);
+        ruleMessage = std::shared_ptr<RuleMessage>(
+            new RuleMessage(this, trans));
+    }
+    if (m_chainedRuleChild == NULL && m_chainedRuleParent == NULL) {
+        trans->serverLog(ruleMessage);
     }
 
     return true;
