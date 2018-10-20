@@ -682,6 +682,9 @@ bool Rule::evaluate(Transaction *trans,
 
     for (auto &var : vars) {
         std::vector<const VariableValue *> e;
+        if (!var) {
+            continue;
+        }
         var->evaluate(trans, this, &e);
         for (const VariableValue *v : e) {
             const std::string &value = v->m_value;
