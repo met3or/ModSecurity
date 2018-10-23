@@ -23,6 +23,7 @@
 #include <cstring>
 #include <list>
 #include <utility>
+#include <memory>
 
 #include "src/operators/operator.h"
 #include "modsecurity/actions/action.h"
@@ -730,19 +731,26 @@ bool Rule::evaluate(Transaction *trans,
                     for (auto &i : v->m_orign) {
                         ruleMessage->m_reference.append(i->toText());
                     }
+
                     ruleMessage->m_reference.append(*valueTemp.second);
                     updateMatchedVars(trans, key, valueAfterTrans);
                     executeActionsIndependentOfChainedRuleResult(trans,
                         &containsBlock, ruleMessage);
-                    if (m_chainedRuleChild == NULL && m_chainedRuleParent == NULL
-                        && m_containsMultiMatchAction && ruleMessage->m_saveMessage
-                        && !ruleMessage->m_message.empty()) {
+
+                    bool isItChained = m_chainedRuleChild == NULL && m_chainedRuleParent == NULL;
+                    bool isItToBeLogged = ruleMessage->m_saveMessage;
+                    if (!m_containsMultiMatchAction && isItToBeLogged) {
+                        /* warn */
                         trans->m_rulesMessages.push_back(*ruleMessage);
-                        ruleMessage = std::shared_ptr<RuleMessage>(
-                            new RuleMessage(this, trans));
-                    }
-                    if (m_containsStaticBlockAction && m_containsMultiMatchAction) {
+                        /* error */
                         trans->serverLog(ruleMessage);
+
+                        //RuleMessage *rm = std::shared_ptr<RuleMessage>(
+                        //    new RuleMessage(this, trans));
+                        RuleMessage *rm = new RuleMessage(this, trans);
+
+                        rm->m_saveMessage = ruleMessage->m_saveMessage;
+                        ruleMessage.reset(rm);
                     }
 
                     globalRet = true;
@@ -784,6 +792,37 @@ end_clean:
 
 end_exec:
     executeActionsAfterFullMatch(trans, containsBlock, ruleMessage);
+
+    /* last rule in the chain. */
+    bool isItToBeLogged = ruleMessage->m_saveMessage;
+    if (isItToBeLogged && !m_containsMultiMatchAction) {
+        /* warn */
+        trans->m_rulesMessages.push_back(*ruleMessage);
+        /* error */
+        trans->serverLog(ruleMessage);
+    }
+    else if (m_containsStaticBlockAction && !m_containsMultiMatchAction) {
+        /* warn */
+        trans->m_rulesMessages.push_back(*ruleMessage);
+        /* error */
+        trans->serverLog(ruleMessage);
+    }
+#if 0
+                        RuleMessage *rm = std::shared_ptr<RuleMessage>(
+                            new RuleMessage(this, trans));
+                        rm->m_saveMessage = ruleMessage->m_saveMessage;
+                        ruleMessage = rm;
+                    }
+
+    if ((m_chainedRuleChild == NULL && m_chainedRuleParent == NULL)
+        && m_containsStaticBlockAction) {
+        trans->m_rulesMessages.push_back(*ruleMessage);
+        ruleMessage = std::shared_ptr<RuleMessage>(
+            new RuleMessage(this, trans));
+
+        trans->serverLog(ruleMessage);
+    }
+
     if (m_chainedRuleChild == NULL && m_chainedRuleParent == NULL
         && m_containsMultiMatchAction && ruleMessage->m_saveMessage
         && !ruleMessage->m_message.empty()) {
@@ -794,7 +833,7 @@ end_exec:
     if (m_chainedRuleChild == NULL && m_chainedRuleParent == NULL) {
         trans->serverLog(ruleMessage);
     }
-
+#endif
     return true;
 }
 
