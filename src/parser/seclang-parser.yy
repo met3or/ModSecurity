@@ -1734,12 +1734,39 @@ expression:
         int Map = 0;
         char *ucode = NULL, *hmap = NULL;
         int processing = 0;
+        
+        std::vector<std::string> param = utils::string::ssplit($1, ' ');
+        if (param.size() <= 1) {
+            std::stringstream ss;
+            ss << "Failed to process unicode map, missing parameter: " << $1 << " ";
+            ss << err;
+            driver.error(@0, ss.str());
+            YYERROR;
+        }
 
-        std::string file = modsecurity::utils::find_resource($1,
+        int num = 0;
+        try {
+            num = std::stod(param.back());
+        } catch (...) {
+            std::stringstream ss;
+            ss << "Failed to process unicode map, last parameter is expected to be a number: " << param.back() << " ";
+            ss << err;
+            driver.error(@0, ss.str());
+            YYERROR;
+        }
+        param.pop_back();
+
+        std::string f;
+        while (param.size() > 0) {
+            f = param.back() + " " + f;
+            param.pop_back();
+        }
+    
+        std::string file = modsecurity::utils::find_resource(f,
             driver.ref.back(), &err);
         if (file.empty()) {
             std::stringstream ss;
-            ss << "Failed to load locate the unicode map file from: " << $1 << " ";
+            ss << "Failed to locate the unicode map file from: " << f << " ";
             ss << err;
             driver.error(@0, ss.str());
             YYERROR;
