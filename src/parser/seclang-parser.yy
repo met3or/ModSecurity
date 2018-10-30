@@ -1727,9 +1727,10 @@ expression:
     | CONFIG_DIR_UNICODE_MAP_FILE
       {
         std::string err;
-        char *buf = NULL, *p = NULL, *savedptr = NULL;
+        char *p = NULL, *savedptr = NULL;
         int found = 0;
         int code = 0;
+        int length = 0;
         unsigned int codepage = 0;
         int Map = 0;
         char *ucode = NULL, *hmap = NULL;
@@ -1774,6 +1775,23 @@ expression:
 
         driver.m_unicodeMapTable.m_set = true;
         driver.m_unicodeMapTable.m_unicode_map_table = static_cast<int *>(malloc(sizeof(int) * 65536));
+
+        std::ifstream file_stream(f, std::ios::in | std::ios::binary);
+        if (file_stream) {
+           file_stream.seekg (0, file_stream.end);
+           length = file_stream.tellg();
+           file_stream.seekg (0, file_stream.beg);
+      } else {
+           std::stringstream ss;
+           ss << "Failed to open the unicode map file from:" << f << " ";
+           ss << err;
+           driver.error(@0, ss.str());
+           YYERROR;
+        }
+
+       char * buf = new char[length];
+       file_stream.read(buf, length);
+       file_stream.close();
 
         // FIXME: that deservers to have its own file. Too much code to be here.
 

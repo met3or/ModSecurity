@@ -89,7 +89,7 @@ int UrlDecodeUni::inplace(unsigned char *input, uint64_t input_len,
                         if (t
                             && t->m_rules->m_unicodeMapTable.m_set == true
                             && t->m_rules->m_unicodeMapTable.m_unicode_map_table != NULL
-                            && t->m_rules->unicode_codepage > 0)  {
+                            && t->m_rules->m_unicodeMapTable.m_unicode_codepage > 0)  {
                             for (j = 5; j >= 2; j--) {
                                 if (isxdigit((input[i+j]))) {
                                     if (input[i+j] >= 97) {
