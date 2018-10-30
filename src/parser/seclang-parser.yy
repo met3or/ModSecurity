@@ -1759,7 +1759,7 @@ expression:
 
         std::string f;
         while (param.size() > 0) {
-            f = param.back() + " " + f;
+            f = param.back() + f;
             param.pop_back();
         }
     
