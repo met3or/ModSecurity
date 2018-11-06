@@ -230,16 +230,16 @@ bool SharedFiles::write(const std::string& fileName,
         return false;
     }
 
-    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cancel_state);
-    pthread_mutex_lock(&a.first->lock);
+   //pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cancel_state);
+   //pthread_mutex_lock(&a.first->lock);
     wrote = fwrite(lmsg.c_str(), 1, lmsg.size(), a.second);
     if (wrote < msg.size()) {
         error->assign("failed to write: " + fileName);
         ret = false;
     }
     fflush(a.second);
-    pthread_mutex_unlock(&a.first->lock);
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &cancel_state);
+  //pthread_mutex_unlock(&a.first->lock);
+  //pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &cancel_state);
   //pthread_testcancel();
 
     return ret;
