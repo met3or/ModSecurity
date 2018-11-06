@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <signal.h>
 #include <thread>
 #include <mutex>
 #include <utility>
