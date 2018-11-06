@@ -227,12 +227,13 @@ bool SharedFiles::write(const std::string& fileName,
         return false;
     }
 
-    std::lock_guard<std::mutex> guard(a.first->my_lock);
-    wrote = static_cast<size_t>(::write(fileno(a.second), lmsg.data(), lmsg.size()));
-    if (wrote != msg.size()) {
-        error->assign("failed to write: " + fileName);
-        ret = false;
-    }
+    a.first->my_lock.lock();
+    a.first->my_lock.unlock();
+    //wrote = static_cast<size_t>(::write(fileno(a.second), lmsg.data(), lmsg.size()));
+    //if (wrote != msg.size()) {
+    //    error->assign("failed to write: " + fileName);
+    //    ret = false;
+    //}
 }
 }  // namespace utils
 }  // namespace modsecurity
