@@ -33,6 +33,8 @@
 #include <vector>
 #include <fstream>
 #include <string>
+#include <mutex>
+#include <thread>
 
 
 #include "modsecurity/transaction.h"
@@ -50,7 +52,7 @@ namespace utils {
 
 typedef struct msc_file_handler {
     int shm_id_structure;
-    pthread_mutex_t lock;
+    std::mutex my_lock;
     char file_name[];
 } msc_file_handler_t;
 

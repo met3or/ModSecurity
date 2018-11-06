@@ -13,7 +13,6 @@
  *
  */
 
-#include "src/utils/shared_files.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -27,9 +26,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <thread>
+#include <mutex>
 #include <utility>
 #include <fstream>
 #include <string>
+#include "shared_files.h"
 
 namespace modsecurity {
 namespace utils {
@@ -42,8 +44,7 @@ std::pair<msc_file_handler *, FILE *> SharedFiles::find_handler(
             return i.second;
         }
     }
-    return std::pair<modsecurity::utils::msc_file_handler *,
-        FILE *>(NULL, NULL);
+    return {NULL, NULL};
 }
 
 
@@ -90,8 +91,7 @@ std::pair<msc_file_handler *, FILE *> SharedFiles::add_new_handler(
         goto err_shmctl1;
     }
 
-    new_debug_log = reinterpret_cast<msc_file_handler_t *>(
-            shmat(shm_id, NULL, 0));
+    new_debug_log = reinterpret_cast<msc_file_handler_t *>(shmat(shm_id, NULL, 0));
     if ((reinterpret_cast<char *>(new_debug_log)[0]) == -1) {
         error->assign("Failed to attach shared memory (1): ");
         error->append(strerror(errno));
@@ -104,13 +104,11 @@ std::pair<msc_file_handler *, FILE *> SharedFiles::add_new_handler(
 
     if (toBeCreated) {
         memset(new_debug_log, '\0', sizeof(msc_file_handler_t));
-        pthread_mutex_init(&new_debug_log->lock, NULL);
         new_debug_log->shm_id_structure = shm_id;
         memcpy(new_debug_log->file_name, fileName.c_str(), fileName.size());
         new_debug_log->file_name[fileName.size()] = '\0';
     }
-    m_handlers.push_back(std::make_pair(fileName,
-        std::make_pair(new_debug_log, fp)));
+    m_handlers.emplace_back(fileName, std::make_pair(new_debug_log, fp));
 
     return std::make_pair(new_debug_log, fp);
 err_shmat1:
@@ -120,8 +118,7 @@ err_shmget1:
 err_mem_key:
     fclose(fp);
 err_fh:
-    return std::pair<modsecurity::utils::msc_file_handler *,
-        FILE *>(NULL, NULL);
+    return {NULL, NULL};
 }
 
 
@@ -216,13 +213,13 @@ out:
     return;
 }
 
+
 bool SharedFiles::write(const std::string& fileName,
     const std::string &msg, std::string *error) {
     std::pair<msc_file_handler *, FILE *> a;
     std::string lmsg = msg;
     size_t wrote;
     bool ret = true;
-    int cancel_state = 0;
 
     a = find_handler(fileName);
     if (a.first == NULL) {
@@ -230,20 +227,16 @@ bool SharedFiles::write(const std::string& fileName,
         return false;
     }
 
-   //pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cancel_state);
-   //pthread_mutex_lock(&a.first->lock);
+    std::lock_guard<std::mutex> guard(a.first->my_lock);
     wrote = fwrite(lmsg.c_str(), 1, lmsg.size(), a.second);
     if (wrote < msg.size()) {
         error->assign("failed to write: " + fileName);
         ret = false;
     }
     fflush(a.second);
-  //pthread_mutex_unlock(&a.first->lock);
-  //pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &cancel_state);
-  //pthread_testcancel();
-
     return ret;
 }
+
 
 }  // namespace utils
 }  // namespace modsecurity
