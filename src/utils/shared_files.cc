@@ -213,7 +213,6 @@ out:
     return;
 }
 
-
 bool SharedFiles::write(const std::string& fileName,
     const std::string &msg, std::string *error) {
     std::pair<msc_file_handler *, FILE *> a;
@@ -227,13 +226,29 @@ bool SharedFiles::write(const std::string& fileName,
         return false;
     }
 
+    sigset_t mask;
+    sigset_t orig_mask;
+    sigemptyset (&mask);
+    sigaddset (&mask, SIGHUP);
+    if (sigprocmask(SIG_BLOCK, &mask, &orig_mask) < 0) {
+        perror ("sigprocmask");
+        return 1;
+    }
+
     a.first->my_lock.lock();
+    wrote = fwrite(lmsg.c_str(), 1, lmsg.size(), a.second);
+    if (wrote < msg.size()) {
+        error->assign("failed to write: " + fileName);
+        ret = false;
+    }
+    fflush(a.second);
     a.first->my_lock.unlock();
-    //wrote = static_cast<size_t>(::write(fileno(a.second), lmsg.data(), lmsg.size()));
-    //if (wrote != msg.size()) {
-    //    error->assign("failed to write: " + fileName);
-    //    ret = false;
-    //}
+    if (sigprocmask(SIG_SETMASK, &orig_mask, NULL) < 0) {
+        perror ("sigprocmask");
+        return 1;
+    }
+    return ret;
 }
+
 }  // namespace utils
 }  // namespace modsecurity
