@@ -228,15 +228,11 @@ bool SharedFiles::write(const std::string& fileName,
     }
 
     std::lock_guard<std::mutex> guard(a.first->my_lock);
-    wrote = fwrite(lmsg.c_str(), 1, lmsg.size(), a.second);
-    if (wrote < msg.size()) {
+    wrote = static_cast<size_t>(::write(fileno(a.second), lmsg.data(), lmsg.size()));
+    if (wrote != msg.size()) {
         error->assign("failed to write: " + fileName);
         ret = false;
     }
-    fflush(a.second);
-    return ret;
 }
-
-
 }  // namespace utils
 }  // namespace modsecurity
