@@ -26,12 +26,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <signal.h>
 #include <thread>
 #include <mutex>
 #include <utility>
 #include <fstream>
 #include <string>
+#include <climits>
+#include <signal.h>
 #include "shared_files.h"
 
 namespace modsecurity {
@@ -220,7 +221,6 @@ bool SharedFiles::write(const std::string& fileName,
     std::string lmsg = msg;
     size_t wrote;
     bool ret = true;
-    int cancel_state = 0;
 
     a = find_handler(fileName);
     if (a.first == NULL) {
@@ -228,40 +228,25 @@ bool SharedFiles::write(const std::string& fileName,
         return false;
     }
 
-    sigaction(SIGABRT, &sa, nullptr);
-    sigaction(SIGFPE, &sa, nullptr);
-    sigaction(SIGILL, &sa, nullptr);
-    sigaction(SIGSEGV, &sa, nullptr);
-    sigaction(SIGTERM, &sa, nullptr);
-    sigaction(SIGINT, &sa, nullptr);
-    sigaction(SIGHUP, &sa, nullptr);
-    sigaction(SIGPWR, &sa, nullptr);
-    sigaction(SIGQUIT, &sa, nullptr);
+    //Exclusively lock whole file
+    struct flock ll{};
+    ll.l_start = ll.l_len = ll.l_whence = 0;
+    ll.l_type = F_WRLCK;
+    fcntl(fileno(a.second), F_SETLKW, &ll);
 
-    sigset_t mask;
-    sigset_t orig_mask;
-    sigfillset (&mask);
-    if (sigprocmask(SIG_SETMASK, &mask, &orig_mask) < 0) {
-        perror ("sigprocmask");
-        abort();
-    }
-
-    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cancel_state);
-    a.first->my_lock.lock();
     wrote = fwrite(lmsg.c_str(), 1, lmsg.size(), a.second);
     if (wrote < msg.size()) {
         error->assign("failed to write: " + fileName);
         ret = false;
     }
     fflush(a.second);
-    a.first->my_lock.unlock();
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &cancel_state);
-    if (sigprocmask(SIG_SETMASK, &orig_mask, NULL) < 0) {
-        perror ("sigprocmask");
-        abort();
-    }
+
+    //Remove exclusive lock
+    ll.l_type = F_UNLCK;
+    fcntl(fileno(a.second), F_SETLKW/, &ll);
     return ret;
 }
+
 
 }  // namespace utils
 }  // namespace modsecurity

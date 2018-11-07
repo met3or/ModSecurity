@@ -55,20 +55,9 @@ namespace utils {
 
 typedef struct msc_file_handler {
     int shm_id_structure;
-    std::mutex my_lock;
     char file_name[];
 } msc_file_handler_t;
 
-
-static void fatal_signal_handler(int code, siginfo_t *, void *)
-{
-    std::string msg = "Received signal: " + std::to_string(code);
-    std::cerr << "Received signal: " << msg << std::endl;
-    int fd = open(std::string("/tmp/received_signal." + std::to_string(getpid())).c_str(), O_CREAT | O_RDWR, 0);
-    write(fd, msg.c_str(), msg.size());
-}
-
-static struct sigaction sa;
 
 class SharedFiles {
  public:
@@ -89,24 +78,12 @@ class SharedFiles {
         const std::string &fileName, std::string *error);
 
  private:
+    static struct sigaction sa;
     SharedFiles()
 #ifdef MODSEC_USE_GENERAL_LOCK
         : m_generalLock(NULL)
 #endif
     {
-        sa.sa_sigaction = &fatal_signal_handler;
-        sigemptyset(&sa.sa_mask);
-        sa.sa_flags = SA_SIGINFO;
-
-        sigaction(SIGABRT, &sa, nullptr);
-        sigaction(SIGFPE, &sa, nullptr);
-        sigaction(SIGILL, &sa, nullptr);
-        sigaction(SIGSEGV, &sa, nullptr);
-        sigaction(SIGTERM, &sa, nullptr);
-        sigaction(SIGINT, &sa, nullptr);
-        sigaction(SIGHUP, &sa, nullptr);
-        sigaction(SIGPWR, &sa, nullptr);
-        sigaction(SIGQUIT, &sa, nullptr);
 
 #ifdef MODSEC_USE_GENERAL_LOCK
         int shm_id;
