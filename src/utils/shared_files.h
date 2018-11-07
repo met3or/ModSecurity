@@ -27,13 +27,17 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
+#include <execinfo.h>
+#include <csignal>
+#include <sys/resource.h>
 
+#include <unistd.h>
 #include <utility>
 #include <vector>
 #include <fstream>
 #include <string>
 #include <mutex>
+
 
 
 #include "modsecurity/transaction.h"
@@ -46,42 +50,43 @@
 /* #define MODSEC_USE_GENERAL_LOCK */
 
 namespace modsecurity {
-    namespace utils {
+namespace utils {
 
 
-        typedef struct msc_file_handler {
-            int shm_id_structure;
-            std::timed_mutex mutex;
-            char file_name[];
-        } msc_file_handler_t;
+typedef struct msc_file_handler {
+    int shm_id_structure;
+    char file_name[];
+} msc_file_handler_t;
 
 
-        class SharedFiles {
-        public:
-            bool open(const std::string& fileName, std::string *error);
-            void close(const std::string& fileName);
-            bool write(const std::string& fileName, const std::string &msg,
-                       std::string *error);
+class SharedFiles {
+ public:
+    bool open(const std::string& fileName, std::string *error);
+    void close(const std::string& fileName);
+    bool write(const std::string& fileName, const std::string &msg,
+        std::string *error);
 
-            static SharedFiles& getInstance() {
-                static SharedFiles instance;
-                return instance;
-            }
+    static SharedFiles& getInstance() {
+        static SharedFiles instance;
+        return instance;
+    }
 
-        protected:
-            std::pair<msc_file_handler *, FILE *> find_handler(
-                    const std::string &fileName);
-            std::pair<msc_file_handler *, FILE *> add_new_handler(
-                    const std::string &fileName, std::string *error);
+ protected:
+    std::pair<msc_file_handler *, FILE *> find_handler(
+        const std::string &fileName);
+    std::pair<msc_file_handler *, FILE *> add_new_handler(
+        const std::string &fileName, std::string *error);
 
-        private:
-            SharedFiles()
+ private:
+    static struct sigaction sa;
+    SharedFiles()
 #ifdef MODSEC_USE_GENERAL_LOCK
-            : m_generalLock(NULL)
+        : m_generalLock(NULL)
 #endif
-            {
+    {
+
 #ifdef MODSEC_USE_GENERAL_LOCK
-                int shm_id;
+        int shm_id;
         bool toBeCreated = true;
         bool err = false;
 
@@ -126,32 +131,31 @@ err_shmat1:
         }
         toBeCreated = false;
 #endif
-            }
-            ~SharedFiles() {
+    }
+    ~SharedFiles() {
 #if MODSEC_USE_GENERAL_LOCK
-                shmdt(m_generalLock);
+        shmdt(m_generalLock);
         shmctl(m_memKeyStructure, IPC_RMID, NULL);
 #endif
-            }
+    }
 
-            // C++ 03
-            // ========
-            // Dont forget to declare these two. You want to make sure they
-            // are unacceptable otherwise you may accidentally get copies of
-            // your singleton appearing.
-            SharedFiles(SharedFiles const&);
-            void operator=(SharedFiles const&);
+    // C++ 03
+    // ========
+    // Dont forget to declare these two. You want to make sure they
+    // are unacceptable otherwise you may accidentally get copies of
+    // your singleton appearing.
+    SharedFiles(SharedFiles const&);
+    void operator=(SharedFiles const&);
 
-            std::vector<std::pair<std::string,
-                    std::pair<msc_file_handler *, FILE *>>> m_handlers;
+    std::vector<std::pair<std::string, std::pair<msc_file_handler *, FILE *>>> m_handlers;
 #if MODSEC_USE_GENERAL_LOCK
-            pthread_mutex_t *m_generalLock;
+    pthread_mutex_t *m_generalLock;
     key_t m_memKeyStructure;
 #endif
-        };
+};
 
 
-    }  // namespace utils
+}  // namespace utils
 }  // namespace modsecurity
 
 #endif  // SRC_UTILS_SHARED_FILES_H_
