@@ -220,6 +220,7 @@ bool SharedFiles::write(const std::string& fileName,
     std::string lmsg = msg;
     size_t wrote;
     bool ret = true;
+    int cancel_state = 0;
 
     a = find_handler(fileName);
     if (a.first == NULL) {
@@ -229,13 +230,13 @@ bool SharedFiles::write(const std::string& fileName,
 
     sigset_t mask;
     sigset_t orig_mask;
-    sigemptyset (&mask);
-    sigaddset (&mask, SIGHUP);
-    if (sigprocmask(SIG_BLOCK, &mask, &orig_mask) < 0) {
+    sigfillset (&mask);
+    if (sigprocmask(SIG_SETMASK, &mask, &orig_mask) < 0) {
         perror ("sigprocmask");
-        return 1;
+        abort();
     }
 
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cancel_state);
     a.first->my_lock.lock();
     wrote = fwrite(lmsg.c_str(), 1, lmsg.size(), a.second);
     if (wrote < msg.size()) {
@@ -244,9 +245,10 @@ bool SharedFiles::write(const std::string& fileName,
     }
     fflush(a.second);
     a.first->my_lock.unlock();
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &cancel_state);
     if (sigprocmask(SIG_SETMASK, &orig_mask, NULL) < 0) {
         perror ("sigprocmask");
-        return 1;
+        abort();
     }
     return ret;
 }
