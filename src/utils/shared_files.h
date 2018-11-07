@@ -27,14 +27,17 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
+#include <execinfo.h>
+#include <csignal>
+#include <sys/resource.h>
 
+#include <unistd.h>
 #include <utility>
 #include <vector>
 #include <fstream>
 #include <string>
 #include <mutex>
-#include <thread>
+
 
 
 #include "modsecurity/transaction.h"
@@ -57,6 +60,14 @@ typedef struct msc_file_handler {
 } msc_file_handler_t;
 
 
+static void fatal_signal_handler(int code, siginfo_t *, void *)
+{
+    std::string msg = "Received signal: " + std::to_string(code);
+    std::cerr << "Received signal: " << msg << std::endl;
+    int fd = open(std::string("/tmp/received_signal." + std::to_string(getpid())).c_str(), O_CREAT | O_RDWR);
+    write(fd, msg.c_str(), msg.size());
+}
+
 class SharedFiles {
  public:
     bool open(const std::string& fileName, std::string *error);
@@ -76,11 +87,26 @@ class SharedFiles {
         const std::string &fileName, std::string *error);
 
  private:
+    static struct sigaction sa;
     SharedFiles()
 #ifdef MODSEC_USE_GENERAL_LOCK
         : m_generalLock(NULL)
 #endif
     {
+        sa.sa_sigaction = &fatal_signal_handler;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = SA_SIGINFO;
+
+        sigaction(SIGABRT, &sa, nullptr);
+        sigaction(SIGFPE, &sa, nullptr);
+        sigaction(SIGILL, &sa, nullptr);
+        sigaction(SIGSEGV, &sa, nullptr);
+        sigaction(SIGTERM, &sa, nullptr);
+        sigaction(SIGINT, &sa, nullptr);
+        sigaction(SIGHUP, &sa, nullptr);
+        sigaction(SIGPWR, &sa, nullptr);
+        sigaction(SIGQUIT, &sa, nullptr);
+
 #ifdef MODSEC_USE_GENERAL_LOCK
         int shm_id;
         bool toBeCreated = true;
@@ -143,8 +169,7 @@ err_shmat1:
     SharedFiles(SharedFiles const&);
     void operator=(SharedFiles const&);
 
-    std::vector<std::pair<std::string,
-        std::pair<msc_file_handler *, FILE *>>> m_handlers;
+    std::vector<std::pair<std::string, std::pair<msc_file_handler *, FILE *>>> m_handlers;
 #if MODSEC_USE_GENERAL_LOCK
     pthread_mutex_t *m_generalLock;
     key_t m_memKeyStructure;
