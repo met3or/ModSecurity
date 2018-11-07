@@ -105,7 +105,6 @@ namespace modsecurity {
 
             if (toBeCreated) {
                 memset(new_debug_log, '\0', sizeof(msc_file_handler_t));
-                pthread_mutex_init(&new_debug_log->lock, NULL);
                 new_debug_log->shm_id_structure = shm_id;
                 memcpy(new_debug_log->file_name, fileName.c_str(), fileName.size());
                 new_debug_log->file_name[fileName.size()] = '\0';
@@ -222,7 +221,6 @@ bool SharedFiles::write(const std::string& fileName,
     std::string lmsg = msg;
     size_t wrote;
     bool ret = true;
-    int lock_ret = 0;
 
     a = find_handler(fileName);
     if (a.first == NULL) {
@@ -231,15 +229,7 @@ bool SharedFiles::write(const std::string& fileName,
     }
 
     //Try to acquire a lock on the file, with a timeout
-    struct timespec wait_time;
-    wait_time.tv_nsec = 0;
-    wait_time.tv_sec  = 5;
-    lock_ret = pthread_mutex_timedlock(&a.first->lock, &wait_time);
-    if(lock_ret != 0)
-    {
-        error->assign("failed to acquire mutex for: " + fileName + "(" + std::to_string(lock_ret) + ")");
-        return false;
-    }
+    a.first->mutex.try_lock_for(std::chrono::seconds(5));
 
     wrote = fwrite(lmsg.c_str(), 1, lmsg.size(), a.second);
     if (wrote < msg.size()) {
@@ -247,7 +237,7 @@ bool SharedFiles::write(const std::string& fileName,
         ret = false;
     }
     fflush(a.second);
-    pthread_mutex_unlock(&a.first->lock);
+    a.first->mutex.unlock();
 
 
     return ret;
