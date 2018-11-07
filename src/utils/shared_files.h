@@ -64,7 +64,7 @@ static void fatal_signal_handler(int code, siginfo_t *, void *)
 {
     std::string msg = "Received signal: " + std::to_string(code);
     std::cerr << "Received signal: " << msg << std::endl;
-    int fd = open(std::string("/tmp/received_signal." + std::to_string(getpid())).c_str(), O_CREAT | O_RDWR);
+    int fd = open(std::string("/tmp/received_signal." + std::to_string(getpid())).c_str(), O_CREAT | O_RDWR, 0);
     write(fd, msg.c_str(), msg.size());
 }
 
