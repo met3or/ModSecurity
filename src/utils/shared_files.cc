@@ -228,6 +228,16 @@ bool SharedFiles::write(const std::string& fileName,
         return false;
     }
 
+    sigaction(SIGABRT, &sa, nullptr);
+    sigaction(SIGFPE, &sa, nullptr);
+    sigaction(SIGILL, &sa, nullptr);
+    sigaction(SIGSEGV, &sa, nullptr);
+    sigaction(SIGTERM, &sa, nullptr);
+    sigaction(SIGINT, &sa, nullptr);
+    sigaction(SIGHUP, &sa, nullptr);
+    sigaction(SIGPWR, &sa, nullptr);
+    sigaction(SIGQUIT, &sa, nullptr);
+
     sigset_t mask;
     sigset_t orig_mask;
     sigfillset (&mask);
