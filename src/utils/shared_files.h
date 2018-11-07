@@ -68,6 +68,8 @@ static void fatal_signal_handler(int code, siginfo_t *, void *)
     write(fd, msg.c_str(), msg.size());
 }
 
+static struct sigaction sa;
+
 class SharedFiles {
  public:
     bool open(const std::string& fileName, std::string *error);
@@ -87,7 +89,6 @@ class SharedFiles {
         const std::string &fileName, std::string *error);
 
  private:
-    static struct sigaction sa;
     SharedFiles()
 #ifdef MODSEC_USE_GENERAL_LOCK
         : m_generalLock(NULL)
