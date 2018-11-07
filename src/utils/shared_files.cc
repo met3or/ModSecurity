@@ -243,7 +243,7 @@ bool SharedFiles::write(const std::string& fileName,
 
     //Remove exclusive lock
     ll.l_type = F_UNLCK;
-    fcntl(fileno(a.second), F_SETLKW/, &ll);
+    fcntl(fileno(a.second), F_SETLKW, &ll);
     return ret;
 }
 
